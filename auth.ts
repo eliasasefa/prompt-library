@@ -29,7 +29,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     // Expose it on the session
     async session({ session, token }) {
-      if (session.user) session.user.dbUserId = token.dbUserId;
+      if (session.user)
+        session.user.dbUserId = typeof token.dbUserId === "number" ? token.dbUserId : undefined;
       return session;
     },
   },

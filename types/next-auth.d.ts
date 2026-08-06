@@ -13,3 +13,10 @@ declare module "next-auth/jwt" {
     dbUserId?: number;
   }
 }
+
+declare module "@auth/core/jwt" {
+  interface JWT {
+    dbUserId?: number;
+  }
+}
+
