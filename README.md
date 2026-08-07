@@ -10,7 +10,7 @@
 > A full-stack AI prompt management platform with templates, sharing, voting, and cloud sync.
 
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Site-00C853?style=for-the-badge)](https://prompt-library-elias.vercel.app)
-[![Portfolio](https://img.shields.io/badge/👨‍💻_My_Portfolio-More_Projects-FF6B6B?style=for-the-badge)](YOUR_PORTFOLIO_URL)
+[![Portfolio](https://img.shields.io/badge/👨‍💻_My_Portfolio-More_Projects-FF6B6B?style=for-the-badge)](https://eliasasefa.netlify.app/)
 
 ## ✨ Features
 
