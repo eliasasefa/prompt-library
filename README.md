@@ -1,4 +1,4 @@
-# 🚀 PromptVault - AI Prompt Library
+# 🚀 AI Prompt Library
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
 ![Neon](https://img.shields.io/badge/Neon-Postgres-00E599?style=flat-square&logo=postgresql)
@@ -10,7 +10,7 @@
 > A full-stack AI prompt management platform with templates, sharing, voting, and cloud sync.
 
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_Site-00C853?style=for-the-badge)](https://prompt-library-elias.vercel.app)
-[![Portfolio](https://img.shields.io/badge/👨‍💻_My_Portfolio-More_Projects-FF6B6B?style=for-the-badge)](YOUR_PORTFOLIO_URL)
+[![Portfolio](https://img.shields.io/badge/👨‍💻_My_Portfolio-More_Projects-FF6B6B?style=for-the-badge)](https://eliasasefa.netlify.app/)
 
 ## ✨ Features
 
@@ -44,8 +44,8 @@
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="https://placeholder.com/dashboard.png" alt="Dashboard" width="45%" />
-  <img src="https://placeholder.com/templates.png" alt="Templates" width="45%" />
+  <img src="https://github.com/eliasasefa/prompt-library/blob/master/public/prompt-library-home.png" alt="Dashboard" width="45%" />
+  <img src="https://github.com/eliasasefa/prompt-library/blob/master/public/prompt-library-input.png" alt="Templates" width="45%" />
 </div>
 
 ## 🚀 Getting Started
