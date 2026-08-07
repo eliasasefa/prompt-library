@@ -10,6 +10,8 @@ export type Prompt = {
   own: boolean;
   created_at: string;
   updated_at: string;
+  votes_count: number;
+  user_voted: boolean; 
 };
 
 export type Category = {

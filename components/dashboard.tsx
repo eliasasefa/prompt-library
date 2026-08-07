@@ -62,6 +62,11 @@ export default function Dashboard({ session }: { session: Session }) {
 
   const refresh = () => Promise.all([loadPrompts(), loadCategories()]);
 
+  async function handleVote(p: Prompt) {
+  await fetch(`/api/prompts/${p.id}/vote`, { method: "POST" });
+  await loadPrompts(); // Refresh to update counts
+}
+
   async function handleSave(data: PromptInput, id?: number) {
     const res = await fetch(id ? `/api/prompts/${id}` : "/api/prompts", {
       method: id ? "PATCH" : "POST",
@@ -145,6 +150,25 @@ export default function Dashboard({ session }: { session: Session }) {
               >
                 <Compass className="h-3.5 w-3.5" /> Explore
               </button>
+            </div>
+            <div className="flex items-center gap-1 text-xs">
+              <a href="/api/export?format=json" download className="rounded-lg border border-white/10 px-2 py-1.5 text-white/60 hover:bg-white/5">Export JSON</a>
+              <a href="/api/export?format=md" download className="rounded-lg border border-white/10 px-2 py-1.5 text-white/60 hover:bg-white/5">Export MD</a>
+              <label className="cursor-pointer rounded-lg border border-white/10 px-2 py-1.5 text-white/60 hover:bg-white/5">
+                Import
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    await fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: text });
+                    await refresh();
+                  }} 
+                />
+              </label>
             </div>
 
             {session.user?.image && (
@@ -236,13 +260,14 @@ export default function Dashboard({ session }: { session: Session }) {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {prompts.map((p) => (
-                <PromptCard
-                  key={p.id}
-                  prompt={p}
-                  onEdit={() => { setEditing(p); setModalOpen(true); }}
-                  onDelete={() => handleDelete(p)}
-                  onToggleVisibility={() => handleToggleVisibility(p)}
-                />
+              <PromptCard
+                key={p.id}
+                prompt={p}
+                onEdit={() => { setEditing(p); setModalOpen(true); }}
+                onDelete={() => handleDelete(p)}
+                onToggleVisibility={() => handleToggleVisibility(p)}
+                onVote={() => handleVote(p)} // <--- ADD THIS
+              />
               ))}
             </div>
           )}
