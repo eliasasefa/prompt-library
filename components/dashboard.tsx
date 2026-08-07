@@ -119,7 +119,7 @@ export default function Dashboard({ session }: { session: Session }) {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
               <Sparkles className="h-4 w-4 text-white" />
             </span>
-            PromptVault
+            Prompt Library
           </a>
 
           <div className="relative order-last w-full sm:order-none sm:w-auto sm:max-w-lg sm:flex-1">
