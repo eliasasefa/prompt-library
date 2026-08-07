@@ -12,6 +12,12 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
 
   const hasVars = /\{\{([^}]+)\}\}/.test(prompt.content);
   const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${prompt.id}` : "";
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
 
   async function copy() {
     if (hasVars && prompt.own) {
@@ -25,11 +31,11 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
 
   function share() {
     if (!prompt.is_public) {
-      alert("Make this prompt public first to share its link!");
+      showToast("Make this prompt public first to share!");
       return;
     }
     navigator.clipboard.writeText(publicUrl);
-    alert("Public link copied to clipboard!");
+    showToast("Public link copied!");
   }
 
   return (
@@ -83,6 +89,11 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
             </>
           )}
         </div>
+         {toast && (
+    <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-lg border border-white/10 bg-black/80 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md shadow-lg">
+      {toast}
+    </div>
+  )}
       </article>
       <FillVariablesModal open={showVars} content={prompt.content} onClose={() => setShowVars(false)} />
     </>

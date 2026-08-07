@@ -8,15 +8,21 @@ import FillVariablesModal from "./FillVariablesModal";
 export default function PublicPromptView({ prompt }: { prompt: any }) {
   const [showVars, setShowVars] = useState(false);
   const hasVars = /\{\{([^}]+)\}\}/.test(prompt.content);
+  const [toast, setToast] = useState<string | null>(null);
 
-  function handleCopy() {
-    if (hasVars) {
-      setShowVars(true);
-    } else {
-      navigator.clipboard.writeText(prompt.content);
-      alert("Copied!");
+    function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
     }
-  }
+
+    function handleCopy() {
+    if (hasVars) {
+        setShowVars(true);
+    } else {
+        navigator.clipboard.writeText(prompt.content);
+        showToast("Copied to clipboard!");
+    }
+    }
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white p-6">
@@ -50,6 +56,11 @@ export default function PublicPromptView({ prompt }: { prompt: any }) {
       </div>
       
       <FillVariablesModal open={showVars} content={prompt.content} onClose={() => setShowVars(false)} />
+          {toast && (
+        <div className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-white/10 bg-black/80 px-4 py-2 text-sm font-medium text-white backdrop-blur-md shadow-2xl">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

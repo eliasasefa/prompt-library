@@ -8,6 +8,7 @@ import { Category, Prompt } from "@/lib/types";
 import Sidebar from "./sidebar";
 import PromptCard from "./PromptCard";
 import PromptModal from "./PromptModal";
+import ConfirmDialog from "./ConfirmDialog";
 
 type PromptInput = {
   title: string;
@@ -26,6 +27,12 @@ export default function Dashboard({ session }: { session: Session }) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Prompt | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+  open: boolean;
+  title: string;
+  description: string;
+  onConfirm: () => Promise<void>;
+} | null>(null);
 
   // Debounced search
   useEffect(() => {
@@ -79,11 +86,32 @@ export default function Dashboard({ session }: { session: Session }) {
     await refresh();
   }
 
-  async function handleDelete(p: Prompt) {
-    if (!window.confirm(`Delete "${p.title}"?`)) return;
-    await fetch(`/api/prompts/${p.id}`, { method: "DELETE" });
-    await refresh();
-  }
+  function handleDelete(p: Prompt) {
+  setConfirmDialog({
+    open: true,
+    title: "Delete Prompt",
+    description: `Are you sure you want to delete "${p.title}"? This action cannot be undone.`,
+    onConfirm: async () => {
+      await fetch(`/api/prompts/${p.id}`, { method: "DELETE" });
+      setConfirmDialog(null);
+      await refresh();
+    },
+  });
+}
+
+function handleRemoveCategory(id: number) {
+  setConfirmDialog({
+    open: true,
+    title: "Delete Category",
+    description: "Delete this category? Its prompts will become uncategorized.",
+    onConfirm: async () => {
+      await fetch(`/api/categories/${id}`, { method: "DELETE" });
+      if (activeCategory === String(id)) setActiveCategory("all");
+      setConfirmDialog(null);
+      await refresh();
+    },
+  });
+}
 
   async function handleToggleVisibility(p: Prompt) {
     await fetch(`/api/prompts/${p.id}`, {
@@ -101,13 +129,6 @@ export default function Dashboard({ session }: { session: Session }) {
       body: JSON.stringify({ name }),
     });
     await loadCategories();
-  }
-
-  async function handleRemoveCategory(id: number) {
-    if (!window.confirm("Delete this category? Its prompts become uncategorized.")) return;
-    await fetch(`/api/categories/${id}`, { method: "DELETE" });
-    if (activeCategory === String(id)) setActiveCategory("all");
-    await refresh();
   }
 
   return (
@@ -281,6 +302,17 @@ export default function Dashboard({ session }: { session: Session }) {
         onClose={() => { setModalOpen(false); setEditing(null); }}
         onSave={handleSave}
       />
+            {confirmDialog && (
+        <ConfirmDialog
+          open={confirmDialog.open}
+          title={confirmDialog.title}
+          description={confirmDialog.description}
+          confirmText="Delete"
+          confirmVariant="danger"
+          onClose={() => setConfirmDialog(null)}
+          onConfirm={confirmDialog.onConfirm}
+        />
+      )}
     </div>
   );
 }
