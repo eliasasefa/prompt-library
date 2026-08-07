@@ -1,4 +1,4 @@
-# 🚀 PromptVault - AI Prompt Library
+# 🚀 AI Prompt Library
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
 ![Neon](https://img.shields.io/badge/Neon-Postgres-00E599?style=flat-square&logo=postgresql)
