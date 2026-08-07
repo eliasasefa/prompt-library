@@ -44,8 +44,8 @@
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="https://placeholder.com/dashboard.png" alt="Dashboard" width="45%" />
-  <img src="https://placeholder.com/templates.png" alt="Templates" width="45%" />
+  <img src="https://github.com/eliasasefa/prompt-library/blob/master/public/prompt-library-home.png" alt="Dashboard" width="45%" />
+  <img src="https://github.com/eliasasefa/prompt-library/blob/master/public/prompt-library-input.png" alt="Templates" width="45%" />
 </div>
 
 ## 🚀 Getting Started
