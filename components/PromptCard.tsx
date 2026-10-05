@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Globe, Lock, Pencil, Share2, Trash2, Heart } from "lucide-react";
+import { Check, Copy, Globe, Lock, Pencil, Share2, Trash2, Heart, Sparkles } from "lucide-react";
 import { Prompt } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import FillVariablesModal from "./FillVariablesModal";
@@ -81,7 +81,7 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
                 {prompt.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />} {prompt.is_public ? "Make private" : "Make public"}
               </button>
               <button onClick={onEdit} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-white/50 transition hover:bg-white/5 hover:text-white">
-                <Pencil className="h-3.5 w-3.5" /> Edit
+                <Pencil className="h-3.5 w-3.5" /> Edit with AI <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
               </button>
               <button onClick={onDelete} className="ml-auto flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-white/40 transition hover:bg-red-500/10 hover:text-red-400">
                 <Trash2 className="h-3.5 w-3.5" /> Delete

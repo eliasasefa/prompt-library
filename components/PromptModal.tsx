@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Category, Prompt } from "@/lib/types";
+import AIPromptActions from "@/components/AIPromptActions";
 
 type Props = {
   open: boolean;
@@ -143,11 +144,21 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              maxLength={20000}
               rows={9}
               placeholder="Paste or write your prompt here…"
               className="w-full resize-y rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-sm leading-relaxed outline-none placeholder:text-white/25 focus:border-violet-500/50"
             />
             <p className="mt-1 text-right text-xs text-white/25">{content.length} / 20000</p>
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <p className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/40">
+                AI prompt tools
+              </p>
+              <AIPromptActions
+                prompt={content}
+                onApplyImprovedPrompt={(value) => setContent(value.slice(0, 20000))}
+              />
+            </div>
           </div>
 
           {error && (
