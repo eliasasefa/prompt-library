@@ -236,7 +236,7 @@ export default function Dashboard({ session }: { session: Session }) {
                   }`}
                 >
                   <Library className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">My Library</span>
+                  <span>Library</span>
                 </button>
                 <button
                   role="tab"
@@ -247,7 +247,7 @@ export default function Dashboard({ session }: { session: Session }) {
                   }`}
                 >
                   <Compass className="h-3.5 w-3.5" />
-                  <span className="hidden min-[400px]:inline">Explore</span>
+                  <span>Explore</span>
                 </button>
               </div>
 

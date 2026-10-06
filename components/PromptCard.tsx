@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Globe, Lock, Pencil, Share2, Trash2, Heart, Sparkles } from "lucide-react";
+import { Check, Copy, Globe, Lock, Pencil, Share2, Trash2, Heart, Sparkles, ChevronRight } from "lucide-react";
 import { Prompt } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import FillVariablesModal from "./FillVariablesModal";
+import PromptDetailSheet, { isLongPrompt } from "./PromptDetailSheet";
 
 type Props = {
   prompt: Prompt;
@@ -17,9 +18,11 @@ type Props = {
 export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibility, onVote }: Props) {
   const [copied, setCopied] = useState(false);
   const [showVars, setShowVars] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const hasVars = /\{\{([^}]+)\}\}/.test(prompt.content);
+  const long = isLongPrompt(prompt.content);
   const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${prompt.id}` : "";
 
   function showToast(msg: string) {
@@ -44,6 +47,11 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
     }
     navigator.clipboard.writeText(publicUrl);
     showToast("Public link copied");
+  }
+
+  function openEdit() {
+    setDetailOpen(false);
+    onEdit();
   }
 
   return (
@@ -105,9 +113,28 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
           </div>
         </div>
 
-        <pre className="line-clamp-6 flex-1 overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-white/55">
-          {prompt.content}
-        </pre>
+        {long ? (
+          <button
+            type="button"
+            onClick={() => setDetailOpen(true)}
+            className="group min-h-0 flex-1 text-left"
+            aria-label={`View full prompt: ${prompt.title}`}
+          >
+            <span className="relative block">
+              <pre className="line-clamp-6 overflow-hidden whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-white/55">
+                {prompt.content}
+              </pre>
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#0c0c12] to-transparent" />
+            </span>
+            <span className="mt-2 inline-flex items-center gap-0.5 text-xs font-medium text-violet-300 group-hover:text-violet-200">
+              View full prompt <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          </button>
+        ) : (
+          <pre className="flex-1 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-white/55">
+            {prompt.content}
+          </pre>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-1 border-t border-white/5 pt-3 text-xs">
           {prompt.is_public && (
@@ -150,6 +177,15 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
           </div>
         )}
       </article>
+      <PromptDetailSheet
+        open={detailOpen}
+        prompt={prompt}
+        copied={copied}
+        onClose={() => setDetailOpen(false)}
+        onCopy={copy}
+        onShare={prompt.is_public ? share : undefined}
+        onEdit={prompt.own ? openEdit : undefined}
+      />
       <FillVariablesModal open={showVars} content={prompt.content} onClose={() => setShowVars(false)} />
     </>
   );
