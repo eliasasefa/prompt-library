@@ -34,6 +34,8 @@ export default function Dashboard({ session }: { session: Session }) {
   const [scope, setScope] = useState<"mine" | "explore">("mine");
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [libraryTotal, setLibraryTotal] = useState(0);
+  const [uncategorizedCount, setUncategorizedCount] = useState(0);
   const [activeCategory, setActiveCategory] = useState("all");
   const [input, setInput] = useState("");
   const [q, setQ] = useState("");
@@ -75,7 +77,28 @@ export default function Dashboard({ session }: { session: Session }) {
   const loadCategories = useCallback(async () => {
     try {
       const res = await fetch("/api/categories", { credentials: "include" });
-      if (res.ok) setCategories(await res.json());
+      if (!res.ok) return;
+      const data: unknown = await res.json();
+      if (Array.isArray(data)) {
+        setCategories(
+          data.map((row) => ({
+            ...(row as Category),
+            id: Number((row as Category).id),
+            prompt_count: Number((row as Category).prompt_count) || 0,
+          }))
+        );
+        return;
+      }
+      const payload = data as { categories?: Category[]; total?: unknown; uncategorized?: unknown };
+      setCategories(
+        (payload.categories ?? []).map((row) => ({
+          ...row,
+          id: Number(row.id),
+          prompt_count: Number(row.prompt_count) || 0,
+        }))
+      );
+      setLibraryTotal(Number(payload.total) || 0);
+      setUncategorizedCount(Number(payload.uncategorized) || 0);
     } catch (e) {
       console.error(e);
     }
@@ -161,13 +184,22 @@ export default function Dashboard({ session }: { session: Session }) {
     await loadPrompts();
   }
 
-  async function handleAddCategory(name: string) {
-    await fetch("/api/categories", {
+  async function handleAddCategory(name: string): Promise<Category | null> {
+    const res = await fetch("/api/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
+    if (!res.ok) return null;
+    const created = (await res.json()) as { id?: unknown; name?: unknown };
     await loadCategories();
+    if (created?.id == null) return null;
+    return { id: Number(created.id), name: String(created.name ?? name), prompt_count: 0 };
+  }
+
+  function openNewPrompt() {
+    setEditing(null);
+    setModalOpen(true);
   }
 
   async function handleImport(file: File) {
@@ -337,6 +369,8 @@ export default function Dashboard({ session }: { session: Session }) {
           <Sidebar
             categories={categories}
             active={activeCategory}
+            total={libraryTotal}
+            uncategorized={uncategorizedCount}
             onSelect={setActiveCategory}
             onAdd={handleAddCategory}
             onRemove={handleRemoveCategory}
@@ -354,10 +388,7 @@ export default function Dashboard({ session }: { session: Session }) {
               </p>
             </div>
             <button
-              onClick={() => {
-                setEditing(null);
-                setModalOpen(true);
-              }}
+              onClick={openNewPrompt}
               className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition hover:opacity-90 sm:px-4"
             >
               <Plus className="h-4 w-4" />
@@ -380,6 +411,12 @@ export default function Dashboard({ session }: { session: Session }) {
                   {c.name}
                 </Chip>
               ))}
+              <Chip
+                active={activeCategory === "uncategorized"}
+                onClick={() => setActiveCategory("uncategorized")}
+              >
+                Uncategorized
+              </Chip>
             </div>
           )}
 
@@ -394,7 +431,11 @@ export default function Dashboard({ session }: { session: Session }) {
                   ? "No prompts match your search."
                   : scope === "explore"
                     ? "No public prompts yet — be the first to share one!"
-                    : "Your library is empty."}
+                    : activeCategory === "uncategorized"
+                      ? "No uncategorized prompts."
+                      : activeCategory !== "all"
+                        ? "No prompts in this category yet."
+                        : "Your library is empty."}
               </p>
               {q ? (
                 <button
@@ -406,10 +447,10 @@ export default function Dashboard({ session }: { session: Session }) {
               ) : (
                 scope === "mine" && (
                   <button
-                    onClick={() => setModalOpen(true)}
+                    onClick={openNewPrompt}
                     className="mt-4 rounded-xl bg-violet-500/15 px-4 py-2 text-sm text-violet-300 hover:bg-violet-500/25"
                   >
-                    Save your first prompt
+                    {activeCategory !== "all" ? "Add a prompt here" : "Save your first prompt"}
                   </button>
                 )
               )}
@@ -438,6 +479,8 @@ export default function Dashboard({ session }: { session: Session }) {
         open={modalOpen}
         editing={editing}
         categories={categories}
+        defaultCategoryId={activeCategory}
+        onCreateCategory={handleAddCategory}
         onClose={() => {
           setModalOpen(false);
           setEditing(null);

@@ -11,7 +11,11 @@ export async function GET(req: NextRequest) {
   const q = (sp.get("q") ?? "").trim();
   const like = `%${q}%`;
   const categoryRaw = sp.get("category");
-  const categoryId = scope === "mine" && categoryRaw && categoryRaw !== "all" ? Number(categoryRaw) : null;
+  const uncategorized = scope === "mine" && categoryRaw === "uncategorized";
+  const categoryId =
+    scope === "mine" && categoryRaw && categoryRaw !== "all" && !uncategorized
+      ? Number(categoryRaw)
+      : null;
 
   if (scope === "explore") {
     const rows = await sql`
@@ -46,7 +50,16 @@ export async function GET(req: NextRequest) {
     LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.user_id = ${uid}
       AND (${q} = '' OR p.title ILIKE ${like} OR p.content ILIKE ${like})
-      AND (${categoryId}::int IS NULL OR p.category_id = ${categoryId})
+      AND (
+        (
+          ${uncategorized ? 1 : 0}::int = 0
+          AND (${categoryId}::int IS NULL OR p.category_id = ${categoryId})
+        )
+        OR (
+          ${uncategorized ? 1 : 0}::int = 1
+          AND p.category_id IS NULL
+        )
+      )
     ORDER BY p.created_at DESC
     LIMIT 500
   `;
@@ -64,7 +77,13 @@ export async function POST(req: NextRequest) {
   const title = String(body.title ?? "").trim().slice(0, 200);
   const content = String(body.content ?? "").trim();
   const isPublic = Boolean(body.isPublic);
-  const categoryId = body.categoryId ? Number(body.categoryId) : null;
+  const categoryId =
+    body.categoryId === null || body.categoryId === undefined || body.categoryId === ""
+      ? null
+      : Number(body.categoryId);
+  if (categoryId !== null && !Number.isInteger(categoryId)) {
+    return new Response("Invalid category", { status: 400 });
+  }
 
   if (!title || !content)
     return new Response("Title and content are required", { status: 400 });

@@ -9,14 +9,24 @@ type Props = {
   open: boolean;
   editing: Prompt | null;
   categories: Category[];
+  defaultCategoryId?: string;
   onClose: () => void;
+  onCreateCategory?: (name: string) => Promise<Category | null>;
   onSave: (
     data: { title: string; content: string; categoryId: number | null; isPublic: boolean },
     id?: number
   ) => Promise<void>;
 };
 
-export default function PromptModal({ open, editing, categories, onClose, onSave }: Props) {
+export default function PromptModal({
+  open,
+  editing,
+  categories,
+  defaultCategoryId = "",
+  onClose,
+  onCreateCategory,
+  onSave,
+}: Props) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -26,22 +36,30 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
   const [previousContent, setPreviousContent] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
   const [aiSession, setAiSession] = useState(0);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const promptSectionRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const defaultCategoryRef = useRef(defaultCategoryId);
   onCloseRef.current = onClose;
+  defaultCategoryRef.current = defaultCategoryId;
 
   useEffect(() => {
     if (!open) return;
+    const fallback = defaultCategoryRef.current;
+    const fromSidebar =
+      fallback && fallback !== "all" && fallback !== "uncategorized" ? fallback : "";
     setTitle(editing?.title ?? "");
     setContent(editing?.content ?? "");
-    setCategoryId(editing?.category_id ? String(editing.category_id) : "");
+    setCategoryId(editing?.category_id != null ? String(editing.category_id) : fromSidebar);
     setIsPublic(editing?.is_public ?? false);
     setError(null);
     setSaving(false);
     setPreviousContent(null);
     setApplied(false);
     setAiSession(0);
+    setNewCategoryName("");
   }, [open, editing]);
 
   useEffect(() => {
@@ -79,6 +97,23 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
     editorRef.current?.focus();
   }
 
+  async function createCategory(e: React.SyntheticEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const name = newCategoryName.trim();
+    if (!name || !onCreateCategory || addingCategory) return;
+    setAddingCategory(true);
+    try {
+      const created = await onCreateCategory(name);
+      if (created?.id != null) {
+        setCategoryId(String(created.id));
+        setNewCategoryName("");
+      }
+    } finally {
+      setAddingCategory(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
@@ -92,7 +127,7 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
         {
           title: title.trim(),
           content: content.trim(),
-          categoryId: categoryId ? Number(categoryId) : null,
+          categoryId: categoryId && Number.isInteger(Number(categoryId)) ? Number(categoryId) : null,
           isPublic,
         },
         editing?.id
@@ -133,7 +168,7 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
               maxLength={200}
               placeholder="e.g. Code review expert"
               autoFocus
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-white/25 focus:border-violet-500/50"
+              className="w-full rounded-xl border border-white/10 bg-[#12121a] px-3 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-violet-500/50"
             />
           </div>
 
@@ -145,13 +180,42 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-violet-500/50"
+                className="w-full rounded-xl border border-white/10 bg-[#12121a] px-3 py-2 text-sm text-white outline-none focus:border-violet-500/50 [color-scheme:dark]"
               >
-                <option value="">Uncategorized</option>
+                <option value="" className="bg-[#12121a] text-white">
+                  Uncategorized
+                </option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={String(c.id)} className="bg-[#12121a] text-white">
+                    {c.name}
+                  </option>
                 ))}
               </select>
+              {onCreateCategory && (
+                <div className="mt-2 flex gap-1.5">
+                  <input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    maxLength={40}
+                    placeholder="New category"
+                    className="w-full rounded-xl border border-white/10 bg-[#12121a] px-3 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-violet-500/50"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void createCategory(e);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => void createCategory(e)}
+                    disabled={addingCategory || !newCategoryName.trim()}
+                    className="shrink-0 rounded-xl border border-white/10 bg-[#12121a] px-3 text-sm text-violet-300 hover:bg-white/5 disabled:opacity-40"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/40">
@@ -160,7 +224,7 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
               <button
                 type="button"
                 onClick={() => setIsPublic(!isPublic)}
-                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#12121a] px-3 py-2"
               >
                 <span
                   className={`relative h-5 w-9 shrink-0 rounded-full transition ${
@@ -200,7 +264,7 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
               maxLength={20000}
               rows={8}
               placeholder="Paste or write your prompt here…"
-              className={`w-full resize-y rounded-xl border bg-black/30 px-3 py-2 font-mono text-sm leading-relaxed outline-none placeholder:text-white/25 ${
+              className={`w-full resize-y rounded-xl border bg-[#12121a] px-3 py-2 font-mono text-sm leading-relaxed text-white outline-none placeholder:text-white/25 ${
                 applied
                   ? "border-violet-400/60 ring-2 ring-violet-500/20"
                   : "border-white/10 focus:border-violet-500/50"
@@ -234,7 +298,7 @@ export default function PromptModal({ open, editing, categories, onClose, onSave
               <p className="mb-3 text-xs text-white/35">
                 {previousContent != null
                   ? "Want another rewrite? Run a tool again on the updated prompt."
-                  : "Replace prompt puts the suggestion in the field above and closes this result."}
+                  : "Improve your prompt, add useful tags, describe it, or generate variations."}
               </p>
               <AIPromptActions
                 key={`${editing?.id ?? "new"}-${aiSession}`}

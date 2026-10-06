@@ -39,7 +39,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   let categoryId = current.category_id;
   if ("categoryId" in body) {
-    categoryId = body.categoryId ? Number(body.categoryId) : null;
+    categoryId = body.categoryId === null || body.categoryId === undefined || body.categoryId === ""
+      ? null
+      : Number(body.categoryId);
+    if (categoryId !== null && !Number.isInteger(categoryId)) {
+      return new Response("Invalid category", { status: 400 });
+    }
     if (categoryId) {
       const owns = await sql`SELECT id FROM categories WHERE id = ${categoryId} AND user_id = ${uid}`;
       if (!owns.length) return new Response("Category not found", { status: 400 });

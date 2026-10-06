@@ -4,17 +4,33 @@ import { sql } from "@/lib/db";
 export async function GET() {
   const session = await auth();
   const uid = session?.user?.dbUserId;
-  if (!uid) return Response.json([]);
+  if (!uid) return Response.json({ categories: [], total: 0, uncategorized: 0 });
 
   const rows = await sql`
     SELECT c.id, c.name, COUNT(p.id)::int AS prompt_count
     FROM categories c
-    LEFT JOIN prompts p ON p.category_id = c.id
+    LEFT JOIN prompts p ON p.category_id = c.id AND p.user_id = c.user_id
     WHERE c.user_id = ${uid}
     GROUP BY c.id, c.name
     ORDER BY c.name ASC
   `;
-  return Response.json(rows);
+  const stats = await sql`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE category_id IS NULL)::int AS uncategorized
+    FROM prompts
+    WHERE user_id = ${uid}
+  `;
+
+  return Response.json({
+    categories: rows.map((row) => ({
+      id: Number(row.id),
+      name: String(row.name),
+      prompt_count: Number(row.prompt_count ?? 0),
+    })),
+    total: Number(stats[0]?.total ?? 0),
+    uncategorized: Number(stats[0]?.uncategorized ?? 0),
+  });
 }
 
 export async function POST(req: Request) {
@@ -32,5 +48,8 @@ export async function POST(req: Request) {
     ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name
     RETURNING id, user_id, name
   `;
-  return Response.json(rows[0], { status: 201 });
+  return Response.json(
+    { id: Number(rows[0].id), user_id: Number(rows[0].user_id), name: rows[0].name, prompt_count: 0 },
+    { status: 201 }
+  );
 }

@@ -7,18 +7,21 @@ import { Category } from "@/lib/types";
 export default function Sidebar({
   categories,
   active,
+  total,
+  uncategorized,
   onSelect,
   onAdd,
   onRemove,
 }: {
   categories: Category[];
   active: string;
+  total: number;
+  uncategorized: number;
   onSelect: (id: string) => void;
-  onAdd: (name: string) => void;
+  onAdd: (name: string) => void | Promise<unknown>;
   onRemove: (id: number) => void;
 }) {
   const [name, setName] = useState("");
-  const total = categories.reduce((sum, c) => sum + c.prompt_count, 0);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +43,8 @@ export default function Sidebar({
           {categories.map((c) => (
             <div key={c.id} className="group/item relative">
               <Item active={active === String(c.id)} onClick={() => onSelect(String(c.id))}>
-                {c.name} <Count n={c.prompt_count} />
+                <span className="min-w-0 truncate pr-6">{c.name}</span>
+                <Count n={c.prompt_count} />
               </Item>
               <button
                 onClick={() => onRemove(c.id)}
@@ -51,6 +55,9 @@ export default function Sidebar({
               </button>
             </div>
           ))}
+          <Item active={active === "uncategorized"} onClick={() => onSelect("uncategorized")}>
+            Uncategorized <Count n={uncategorized} />
+          </Item>
         </nav>
 
         <form onSubmit={submit} className="mt-4 flex gap-1.5">
@@ -78,7 +85,7 @@ function Item({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition ${
         active ? "bg-violet-500/15 text-violet-200" : "text-white/60 hover:bg-white/5 hover:text-white"
       }`}
     >
@@ -88,5 +95,5 @@ function Item({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 function Count({ n }: { n: number }) {
-  return <span className="text-xs text-white/30">{n}</span>;
+  return <span className="shrink-0 text-xs text-white/30">{Number(n) || 0}</span>;
 }
