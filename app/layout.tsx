@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PromptVault — Your AI Prompt Library",
+  title: "Prompt Library — Save and organize AI prompts",
   description: "Save, organize, search and copy your best AI prompts.",
 };
 

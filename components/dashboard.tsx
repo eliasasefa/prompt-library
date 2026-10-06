@@ -1,9 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import type { Session } from "next-auth";
-import { Compass, Library, Loader2, LogOut, Plus, Search, Sparkles } from "lucide-react";
+import {
+  Compass,
+  FileJson,
+  FileText,
+  Library,
+  Loader2,
+  LogOut,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
 import { Category, Prompt } from "@/lib/types";
 import Sidebar from "./sidebar";
 import PromptCard from "./PromptCard";
@@ -27,18 +40,37 @@ export default function Dashboard({ session }: { session: Session }) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Prompt | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
-  open: boolean;
-  title: string;
-  description: string;
-  onConfirm: () => Promise<void>;
-} | null>(null);
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
 
-  // Debounced search
   useEffect(() => {
     const t = setTimeout(() => setQ(input.trim()), 250);
     return () => clearTimeout(t);
   }, [input]);
+
+  useEffect(() => {
+    function close(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -67,15 +99,19 @@ export default function Dashboard({ session }: { session: Session }) {
     }
   }, [scope, q, activeCategory]);
 
-  useEffect(() => { loadPrompts(); }, [loadPrompts]);
-  useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => {
+    loadPrompts();
+  }, [loadPrompts]);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const refresh = () => Promise.all([loadPrompts(), loadCategories()]);
 
   async function handleVote(p: Prompt) {
-  await fetch(`/api/prompts/${p.id}/vote`, { method: "POST" });
-  await loadPrompts(); // Refresh to update counts
-}
+    await fetch(`/api/prompts/${p.id}/vote`, { method: "POST" });
+    await loadPrompts();
+  }
 
   async function handleSave(data: PromptInput, id?: number) {
     const res = await fetch(id ? `/api/prompts/${id}` : "/api/prompts", {
@@ -90,31 +126,31 @@ export default function Dashboard({ session }: { session: Session }) {
   }
 
   function handleDelete(p: Prompt) {
-  setConfirmDialog({
-    open: true,
-    title: "Delete Prompt",
-    description: `Are you sure you want to delete "${p.title}"? This action cannot be undone.`,
-    onConfirm: async () => {
-      await fetch(`/api/prompts/${p.id}`, { method: "DELETE" });
-      setConfirmDialog(null);
-      await refresh();
-    },
-  });
-}
+    setConfirmDialog({
+      open: true,
+      title: "Delete Prompt",
+      description: `Are you sure you want to delete "${p.title}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        await fetch(`/api/prompts/${p.id}`, { method: "DELETE" });
+        setConfirmDialog(null);
+        await refresh();
+      },
+    });
+  }
 
-function handleRemoveCategory(id: number) {
-  setConfirmDialog({
-    open: true,
-    title: "Delete Category",
-    description: "Delete this category? Its prompts will become uncategorized.",
-    onConfirm: async () => {
-      await fetch(`/api/categories/${id}`, { method: "DELETE" });
-      if (activeCategory === String(id)) setActiveCategory("all");
-      setConfirmDialog(null);
-      await refresh();
-    },
-  });
-}
+  function handleRemoveCategory(id: number) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Category",
+      description: "Delete this category? Its prompts will become uncategorized.",
+      onConfirm: async () => {
+        await fetch(`/api/categories/${id}`, { method: "DELETE" });
+        if (activeCategory === String(id)) setActiveCategory("all");
+        setConfirmDialog(null);
+        await refresh();
+      },
+    });
+  }
 
   async function handleToggleVisibility(p: Prompt) {
     await fetch(`/api/prompts/${p.id}`, {
@@ -134,84 +170,166 @@ function handleRemoveCategory(id: number) {
     await loadCategories();
   }
 
+  async function handleImport(file: File) {
+    const text = await file.text();
+    await fetch("/api/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: text,
+    });
+    await refresh();
+  }
+
+  const searchField = (
+    <div className="relative w-full">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder={scope === "mine" ? "Search your prompts…" : "Search public prompts…"}
+        aria-label={scope === "mine" ? "Search your prompts" : "Search public prompts"}
+        className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-9 text-sm outline-none placeholder:text-white/30 focus:border-violet-500/50 focus:bg-black/40"
+      />
+      {input && (
+        <button
+          type="button"
+          onClick={() => setInput("")}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-white/35 hover:text-white"
+          aria-label="Clear search"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070b]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-          <a href="/" className="flex items-center gap-2 text-sm font-semibold">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
-              <Sparkles className="h-4 w-4 text-white" />
-            </span>
-            Prompt Library
-          </a>
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07070b]/85 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-3 py-2.5 sm:px-4">
+          <div className="relative flex items-center gap-2 sm:gap-3">
+            <a href="/" className="relative z-10 flex min-w-0 shrink-0 items-center gap-2 text-sm font-semibold">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30">
+                <Sparkles className="h-4 w-4 text-white" />
+              </span>
+              <span className="hidden truncate sm:inline">Prompt Library</span>
+            </a>
 
-          <div className="relative order-last w-full sm:order-none sm:w-auto sm:max-w-lg sm:flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={scope === "mine" ? "Search your prompts…" : "Search public prompts…"}
-              className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm outline-none placeholder:text-white/30 focus:border-violet-500/50 focus:bg-black/40"
-            />
-          </div>
-
-          <div className="ml-auto flex items-center gap-3">
-            <div className="flex rounded-full border border-white/10 bg-white/5 p-1 text-xs">
-              <button
-                onClick={() => setScope("mine")}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition ${
-                  scope === "mine" ? "bg-violet-500 text-white" : "text-white/60 hover:text-white"
-                }`}
-              >
-                <Library className="h-3.5 w-3.5" /> My Library
-              </button>
-              <button
-                onClick={() => setScope("explore")}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition ${
-                  scope === "explore" ? "bg-violet-500 text-white" : "text-white/60 hover:text-white"
-                }`}
-              >
-                <Compass className="h-3.5 w-3.5" /> Explore
-              </button>
-            </div>
-            <div className="flex items-center gap-1 text-xs">
-              <a href="/api/export?format=json" download className="rounded-lg border border-white/10 px-2 py-1.5 text-white/60 hover:bg-white/5">Export JSON</a>
-              <a href="/api/export?format=md" download className="rounded-lg border border-white/10 px-2 py-1.5 text-white/60 hover:bg-white/5">Export MD</a>
-              <label className="cursor-pointer rounded-lg border border-white/10 px-2 py-1.5 text-white/60 hover:bg-white/5">
-                Import
-                <input 
-                  type="file" 
-                  accept=".json" 
-                  className="hidden" 
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const text = await file.text();
-                    await fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: text });
-                    await refresh();
-                  }} 
-                />
-              </label>
+            <div className="pointer-events-none absolute inset-x-0 hidden justify-center md:flex">
+              <div className="pointer-events-auto w-full max-w-md px-2 md:max-w-[min(28rem,calc(100%-22rem))]">
+                {searchField}
+              </div>
             </div>
 
-            {session.user?.image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={session.user.image}
-                alt={session.user.name ?? "avatar"}
-                className="h-8 w-8 rounded-full border border-white/10"
-              />
-            )}
-            <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              title="Sign out"
-              className="rounded-lg p-2 text-white/50 transition hover:bg-white/5 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+            <div className="relative z-10 ml-auto flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
+              <div
+                role="tablist"
+                aria-label="Library views"
+                className="flex rounded-full border border-white/10 bg-white/5 p-0.5 text-xs"
+              >
+                <button
+                  role="tab"
+                  aria-selected={scope === "mine"}
+                  onClick={() => setScope("mine")}
+                  className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 transition sm:px-3 ${
+                    scope === "mine" ? "bg-violet-500 text-white" : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  <Library className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">My Library</span>
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={scope === "explore"}
+                  onClick={() => setScope("explore")}
+                  className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 transition sm:px-3 ${
+                    scope === "explore" ? "bg-violet-500 text-white" : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  <Compass className="h-3.5 w-3.5" />
+                  <span className="hidden min-[400px]:inline">Explore</span>
+                </button>
+              </div>
+
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className="flex items-center gap-2 rounded-lg border border-white/10 p-1.5 text-white/60 hover:bg-white/5 hover:text-white sm:px-2"
+                  aria-expanded={menuOpen}
+                  aria-label="Account menu"
+                >
+                  {session.user?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={session.user.image}
+                      alt=""
+                      className="h-7 w-7 rounded-full border border-white/10"
+                    />
+                  ) : (
+                    <MoreHorizontal className="h-4 w-4" />
+                  )}
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#12121a] py-1 shadow-xl">
+                    {(session.user?.name || session.user?.email) && (
+                      <div className="border-b border-white/10 px-3 py-2">
+                        <p className="truncate text-sm text-white">{session.user?.name}</p>
+                        {session.user?.email && (
+                          <p className="truncate text-xs text-white/40">{session.user.email}</p>
+                        )}
+                      </div>
+                    )}
+                    <a
+                      href="/api/export?format=json"
+                      download
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-white/75 hover:bg-white/5"
+                    >
+                      <FileJson className="h-4 w-4" /> Export JSON
+                    </a>
+                    <a
+                      href="/api/export?format=md"
+                      download
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-white/75 hover:bg-white/5"
+                    >
+                      <FileText className="h-4 w-4" /> Export Markdown
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        fileRef.current?.click();
+                        setMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/75 hover:bg-white/5"
+                    >
+                      <Upload className="h-4 w-4" /> Import JSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      className="flex w-full items-center gap-2 border-t border-white/10 px-3 py-2 text-left text-sm text-white/75 hover:bg-white/5"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+          <div className="pt-2.5 md:hidden">{searchField}</div>
         </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            await handleImport(file);
+          }}
+        />
       </header>
 
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
@@ -227,7 +345,7 @@ function handleRemoveCategory(id: number) {
 
         <main className="min-w-0 flex-1">
           <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h1 className="text-lg font-semibold">
                 {scope === "mine" ? "My Library" : "Explore public prompts"}
               </h1>
@@ -236,17 +354,23 @@ function handleRemoveCategory(id: number) {
               </p>
             </div>
             <button
-              onClick={() => { setEditing(null); setModalOpen(true); }}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition hover:opacity-90"
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition hover:opacity-90 sm:px-4"
             >
-              <Plus className="h-4 w-4" /> New prompt
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New prompt</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
 
-          {/* Mobile category chips */}
           {scope === "mine" && (
             <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-              <Chip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>All</Chip>
+              <Chip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>
+                All
+              </Chip>
               {categories.map((c) => (
                 <Chip
                   key={c.id}
@@ -269,29 +393,41 @@ function handleRemoveCategory(id: number) {
                 {q
                   ? "No prompts match your search."
                   : scope === "explore"
-                  ? "No public prompts yet — be the first to share one!"
-                  : "Your library is empty."}
+                    ? "No public prompts yet — be the first to share one!"
+                    : "Your library is empty."}
               </p>
-              {!q && scope === "mine" && (
+              {q ? (
                 <button
-                  onClick={() => setModalOpen(true)}
-                  className="mt-4 rounded-xl bg-violet-500/15 px-4 py-2 text-sm text-violet-300 hover:bg-violet-500/25"
+                  onClick={() => setInput("")}
+                  className="mt-4 rounded-xl bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10"
                 >
-                  Save your first prompt
+                  Clear search
                 </button>
+              ) : (
+                scope === "mine" && (
+                  <button
+                    onClick={() => setModalOpen(true)}
+                    className="mt-4 rounded-xl bg-violet-500/15 px-4 py-2 text-sm text-violet-300 hover:bg-violet-500/25"
+                  >
+                    Save your first prompt
+                  </button>
+                )
               )}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {prompts.map((p) => (
-              <PromptCard
-                key={p.id}
-                prompt={p}
-                onEdit={() => { setEditing(p); setModalOpen(true); }}
-                onDelete={() => handleDelete(p)}
-                onToggleVisibility={() => handleToggleVisibility(p)}
-                onVote={() => handleVote(p)} // <--- ADD THIS
-              />
+                <PromptCard
+                  key={p.id}
+                  prompt={p}
+                  onEdit={() => {
+                    setEditing(p);
+                    setModalOpen(true);
+                  }}
+                  onDelete={() => handleDelete(p)}
+                  onToggleVisibility={() => handleToggleVisibility(p)}
+                  onVote={() => handleVote(p)}
+                />
               ))}
             </div>
           )}
@@ -302,10 +438,13 @@ function handleRemoveCategory(id: number) {
         open={modalOpen}
         editing={editing}
         categories={categories}
-        onClose={() => { setModalOpen(false); setEditing(null); }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
         onSave={handleSave}
       />
-            {confirmDialog && (
+      {confirmDialog && (
         <ConfirmDialog
           open={confirmDialog.open}
           title={confirmDialog.title}
