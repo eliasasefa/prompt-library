@@ -11,12 +11,14 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     dbUserId?: number;
+    mergedAppUser?: boolean;
   }
 }
 
 declare module "@auth/core/jwt" {
   interface JWT {
     dbUserId?: number;
+    mergedAppUser?: boolean;
   }
 }
 

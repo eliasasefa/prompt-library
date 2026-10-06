@@ -40,6 +40,15 @@ export async function handleAIRequest<T>(
     return Response.json(await handler(prompt.trim(), requestedCount));
   } catch (error) {
     console.error("AI request failed:", error);
-    return Response.json({ error: "The AI service could not complete this request. Please try again." }, { status: 502 });
+    const message = error instanceof Error ? error.message : "";
+    const busy = /503|429|high demand|unavailable|overloaded|try again/i.test(message);
+    return Response.json(
+      {
+        error: busy
+          ? "The AI model is busy right now. Please try again in a moment."
+          : "The AI service could not complete this request. Please try again.",
+      },
+      { status: busy ? 503 : 502 }
+    );
   }
 }

@@ -42,7 +42,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
   const loadCategories = useCallback(async () => {
     try {
-      const res = await fetch("/api/categories");
+      const res = await fetch("/api/categories", { credentials: "include" });
       if (res.ok) setCategories(await res.json());
     } catch (e) {
       console.error(e);
@@ -55,8 +55,11 @@ export default function Dashboard({ session }: { session: Session }) {
       const params = new URLSearchParams({ scope });
       if (q) params.set("q", q);
       if (scope === "mine" && activeCategory !== "all") params.set("category", activeCategory);
-      const res = await fetch(`/api/prompts?${params}`);
-      if (res.ok) setPrompts(await res.json());
+      const res = await fetch(`/api/prompts?${params}`, { credentials: "include" });
+      if (res.ok) {
+        const data: unknown = await res.json();
+        setPrompts(Array.isArray(data) ? data : []);
+      }
     } catch (e) {
       console.error(e);
     } finally {

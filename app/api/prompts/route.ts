@@ -2,54 +2,6 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 
-// export async function GET(req: NextRequest) {
-//   const session = await auth();
-//   const uid = session?.user?.dbUserId ?? null;
-
-//   const sp = req.nextUrl.searchParams;
-//   const scope = sp.get("scope") === "explore" ? "explore" : "mine";
-//   const q = (sp.get("q") ?? "").trim();
-//   const like = `%${q}%`;
-//   const categoryRaw = sp.get("category");
-//   const categoryId =
-//     scope === "mine" && categoryRaw && categoryRaw !== "all" ? Number(categoryRaw) : null;
-
-//   if (scope === "explore") {
-//     const rows = await sql`
-//       SELECT p.id, p.title, p.content, p.is_public, p.created_at, p.updated_at,
-//              p.category_id, c.name AS category,
-//              u.name AS author, u.image AS author_image,
-//              (p.user_id = ${uid ?? -1}) AS own
-//       FROM prompts p
-//       JOIN users u ON u.id = p.user_id
-//       LEFT JOIN categories c ON c.id = p.category_id
-//       WHERE p.is_public = true
-//         AND (${q} = '' OR p.title ILIKE ${like} OR p.content ILIKE ${like})
-//       ORDER BY p.created_at DESC
-//       LIMIT 200
-//     `;
-//     return Response.json(rows);
-//   }
-
-//   if (!uid) return Response.json([]);
-
-//   const rows = await sql`
-//     SELECT p.id, p.title, p.content, p.is_public, p.created_at, p.updated_at,
-//            p.category_id, c.name AS category,
-//            u.name AS author, u.image AS author_image,
-//            true AS own
-//     FROM prompts p
-//     JOIN users u ON u.id = p.user_id
-//     LEFT JOIN categories c ON c.id = p.category_id
-//     WHERE p.user_id = ${uid}
-//       AND (${q} = '' OR p.title ILIKE ${like} OR p.content ILIKE ${like})
-//       AND (${categoryId}::int IS NULL OR p.category_id = ${categoryId})
-//     ORDER BY p.created_at DESC
-//     LIMIT 500
-//   `;
-//   return Response.json(rows);
-// }
-
 export async function GET(req: NextRequest) {
   const session = await auth();
   const uid = session?.user?.dbUserId ?? null;
@@ -61,18 +13,14 @@ export async function GET(req: NextRequest) {
   const categoryRaw = sp.get("category");
   const categoryId = scope === "mine" && categoryRaw && categoryRaw !== "all" ? Number(categoryRaw) : null;
 
-  const baseSelect = sql`
-    SELECT p.id, p.title, p.content, p.is_public, p.created_at, p.updated_at,
-           p.category_id, c.name AS category,
-           u.name AS author, u.image AS author_image,
-           (p.user_id = ${uid ?? -1}) AS own,
-           (SELECT COUNT(*) FROM votes v WHERE v.prompt_id = p.id) AS votes_count,
-           EXISTS(SELECT 1 FROM votes v WHERE v.prompt_id = p.id AND v.user_id = ${uid ?? -1}) AS user_voted
-  `;
-
   if (scope === "explore") {
     const rows = await sql`
-      ${baseSelect}
+      SELECT p.id, p.title, p.content, p.is_public, p.created_at, p.updated_at,
+             p.category_id, c.name AS category,
+             u.name AS author, u.image AS author_image,
+             (p.user_id = ${uid ?? -1}) AS own,
+             (SELECT COUNT(*) FROM votes v WHERE v.prompt_id = p.id) AS votes_count,
+             EXISTS(SELECT 1 FROM votes v WHERE v.prompt_id = p.id AND v.user_id = ${uid ?? -1}) AS user_voted
       FROM prompts p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN categories c ON c.id = p.category_id
@@ -87,7 +35,12 @@ export async function GET(req: NextRequest) {
   if (!uid) return Response.json([]);
 
   const rows = await sql`
-    ${baseSelect}
+    SELECT p.id, p.title, p.content, p.is_public, p.created_at, p.updated_at,
+           p.category_id, c.name AS category,
+           u.name AS author, u.image AS author_image,
+           true AS own,
+           (SELECT COUNT(*) FROM votes v WHERE v.prompt_id = p.id) AS votes_count,
+           EXISTS(SELECT 1 FROM votes v WHERE v.prompt_id = p.id AND v.user_id = ${uid}) AS user_voted
     FROM prompts p
     JOIN users u ON u.id = p.user_id
     LEFT JOIN categories c ON c.id = p.category_id

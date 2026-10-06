@@ -1,37 +1,45 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
-import { neon } from "@neondatabase/serverless";
-
-const sql = neon(process.env.DATABASE_URL!);
+import { resolveAppUserId } from "@/lib/app-user";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [GitHub],
   callbacks: {
-    // Create or update the user row on every sign-in
-    async signIn({ user, account }) {
-      if (account?.provider === "github") {
-        await sql`
-          INSERT INTO users (github_id, email, name, image)
-          VALUES (${user.id}, ${user.email ?? null}, ${user.name ?? null}, ${user.image ?? null})
-          ON CONFLICT (github_id)
-          DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name, image = EXCLUDED.image
-        `;
+    async jwt({ token, user, account }) {
+      const githubId =
+        account?.provider === "github" && account.providerAccountId
+          ? String(account.providerAccountId)
+          : undefined;
+      const email =
+        (typeof user?.email === "string" && user.email) ||
+        (typeof token.email === "string" && token.email) ||
+        null;
+      const name =
+        (typeof user?.name === "string" && user.name) ||
+        (typeof token.name === "string" && token.name) ||
+        null;
+      const image =
+        (typeof user?.image === "string" && user.image) ||
+        (typeof token.picture === "string" && token.picture) ||
+        null;
+
+      const shouldResolve = Boolean(account) || token.dbUserId == null || token.mergedAppUser !== true;
+      if (shouldResolve) {
+        const dbUserId = await resolveAppUserId({
+          githubId: githubId ?? (typeof token.sub === "string" ? token.sub : null),
+          email,
+          name,
+          image,
+        });
+        if (dbUserId != null) token.dbUserId = dbUserId;
+        token.mergedAppUser = true;
       }
-      return true;
-    },
-    // Store our DB user id in the JWT
-    async jwt({ token }) {
-      if (token.dbUserId == null && token.sub) {
-        const rows = await sql`SELECT id FROM users WHERE github_id = ${token.sub} LIMIT 1`;
-        if (rows.length) token.dbUserId = Number(rows[0].id);
-      }
+
       return token;
     },
-    // Expose it on the session
     async session({ session, token }) {
-      if (session.user) {
-        const dbUserId = (token as { dbUserId?: unknown }).dbUserId;
-        session.user.dbUserId =  dbUserId as number | undefined;
+      if (session.user && token.dbUserId != null) {
+        session.user.dbUserId = Number(token.dbUserId);
       }
       return session;
     },
