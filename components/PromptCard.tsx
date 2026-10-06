@@ -23,7 +23,6 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
 
   const hasVars = /\{\{([^}]+)\}\}/.test(prompt.content);
   const long = isLongPrompt(prompt.content);
-  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${prompt.id}` : "";
 
   function showToast(msg: string) {
     setToast(msg);
@@ -40,13 +39,18 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
     setTimeout(() => setCopied(false), 1500);
   }
 
-  function share() {
+  async function share() {
     if (!prompt.is_public) {
       showToast("Make this prompt public first to share.");
       return;
     }
-    navigator.clipboard.writeText(publicUrl);
-    showToast("Public link copied");
+    const url = `${window.location.origin}/p/${prompt.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Public link copied");
+    } catch {
+      showToast("Couldn’t copy the public link");
+    }
   }
 
   function openEdit() {
@@ -183,7 +187,6 @@ export default function PromptCard({ prompt, onEdit, onDelete, onToggleVisibilit
         copied={copied}
         onClose={() => setDetailOpen(false)}
         onCopy={copy}
-        onShare={prompt.is_public ? share : undefined}
         onEdit={prompt.own ? openEdit : undefined}
       />
       <FillVariablesModal open={showVars} content={prompt.content} onClose={() => setShowVars(false)} />

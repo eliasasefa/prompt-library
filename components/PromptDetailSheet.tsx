@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Globe, Lock, Pencil, Share2, X } from "lucide-react";
 import { Prompt } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
@@ -11,7 +11,6 @@ type Props = {
   copied: boolean;
   onClose: () => void;
   onCopy: () => void;
-  onShare?: () => void;
   onEdit?: () => void;
 };
 
@@ -21,14 +20,17 @@ export default function PromptDetailSheet({
   copied,
   onClose,
   onCopy,
-  onShare,
   onEdit,
 }: Props) {
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "private" | "error">("idle");
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setShareStatus("idle");
+      return;
+    }
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     function onKey(e: KeyboardEvent) {
@@ -41,7 +43,44 @@ export default function PromptDetailSheet({
     };
   }, [open]);
 
+  async function share() {
+    if (!prompt) return;
+    if (!prompt.is_public) {
+      setShareStatus("private");
+      return;
+    }
+    const url = `${window.location.origin}/p/${prompt.id}`;
+    try {
+      if (typeof navigator.share === "function" && window.matchMedia("(pointer: coarse)").matches) {
+        await navigator.share({ title: prompt.title, url, text: prompt.title });
+        setShareStatus("copied");
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareStatus("copied");
+      window.setTimeout(() => setShareStatus((s) => (s === "copied" ? "idle" : s)), 2000);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareStatus("copied");
+        window.setTimeout(() => setShareStatus((s) => (s === "copied" ? "idle" : s)), 2000);
+      } catch {
+        setShareStatus("error");
+      }
+    }
+  }
+
   if (!open || !prompt) return null;
+
+  const shareLabel =
+    shareStatus === "copied"
+      ? "Link copied"
+      : shareStatus === "private"
+        ? "Make public first"
+        : shareStatus === "error"
+          ? "Couldn’t copy link"
+          : "Share";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
@@ -103,15 +142,20 @@ export default function PromptDetailSheet({
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy prompt"}
           </button>
-          {prompt.is_public && onShare && (
-            <button
-              type="button"
-              onClick={onShare}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white"
-            >
-              <Share2 className="h-4 w-4" /> Share
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void share()}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition ${
+              shareStatus === "copied"
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                : shareStatus === "private" || shareStatus === "error"
+                  ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                  : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            {shareStatus === "copied" ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            {shareLabel}
+          </button>
           {prompt.own && onEdit && (
             <button
               type="button"
@@ -129,6 +173,13 @@ export default function PromptDetailSheet({
             Close
           </button>
         </div>
+        {(shareStatus === "private" || shareStatus === "error") && (
+          <p className="border-t border-white/10 px-4 py-2 text-xs text-amber-200/90 sm:px-5" role="status">
+            {shareStatus === "private"
+              ? "Publish this prompt first, then share its public link."
+              : "The link couldn’t be copied. Check browser clipboard permissions and try again."}
+          </p>
+        )}
       </div>
     </div>
   );
