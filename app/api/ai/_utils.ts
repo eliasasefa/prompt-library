@@ -41,14 +41,17 @@ export async function handleAIRequest<T>(
   } catch (error) {
     console.error("AI request failed:", error);
     const message = error instanceof Error ? error.message : "";
-    const busy = /503|429|high demand|unavailable|overloaded|try again/i.test(message);
+    const busy = /503|429|high demand|unavailable|overloaded|try again|resource exhausted/i.test(message);
+    const missing = /404|no longer available|not found/i.test(message);
     return Response.json(
       {
         error: busy
           ? "The AI model is busy right now. Please try again in a moment."
-          : "The AI service could not complete this request. Please try again.",
+          : missing
+            ? "The AI model is unavailable. Please try again shortly."
+            : "The AI service could not complete this request. Please try again.",
       },
-      { status: busy ? 503 : 502 }
+      { status: busy || missing ? 503 : 502 }
     );
   }
 }

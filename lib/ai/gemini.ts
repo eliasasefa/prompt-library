@@ -5,12 +5,13 @@ const genAI = new GoogleGenerativeAI(
 );
 
 const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-3.8-flash",
-  "gemini-2.0-flash",
-] as const;
+  process.env.GEMINI_MODEL || "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+];
 
 const RETRYABLE = /503|429|high demand|unavailable|overloaded|try again|resource exhausted/i;
+const MISSING_MODEL = /404|no longer available|not found|is not found|not supported/i;
 
 export interface PromptImprovement {
   improved: string;
@@ -29,10 +30,31 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function errorStatus(error: unknown) {
+  return typeof error === "object" && error && "status" in error
+    ? Number((error as { status?: unknown }).status)
+    : NaN;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function isRetryable(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  const status = typeof error === "object" && error && "status" in error ? Number((error as { status?: unknown }).status) : NaN;
-  return status === 429 || status === 503 || RETRYABLE.test(message);
+  const status = errorStatus(error);
+  return status === 429 || status === 503 || RETRYABLE.test(errorMessage(error));
+}
+
+function isMissingModel(error: unknown) {
+  const status = errorStatus(error);
+  return status === 404 || MISSING_MODEL.test(errorMessage(error));
+}
+
+function suggestedModel(error: unknown): string | null {
+  const match = errorMessage(error).match(/models\/(gemini-[\w.-]+)/i);
+  const name = match?.[1];
+  if (!name || GEMINI_MODELS.includes(name)) return null;
+  return name;
 }
 
 function parseJson<T>(text: string): T {
@@ -43,20 +65,32 @@ function parseJson<T>(text: string): T {
 }
 
 async function generateText(prompt: string): Promise<string> {
+  const tried = new Set<string>();
+  const queue = [...GEMINI_MODELS];
   let lastError: unknown;
-  for (const modelName of GEMINI_MODELS) {
+
+  while (queue.length) {
+    const modelName = queue.shift()!;
+    if (tried.has(modelName)) continue;
+    tried.add(modelName);
+
     const model = genAI.getGenerativeModel({ model: modelName });
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const attempts = 3;
+    for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         const result = await model.generateContent(prompt);
         return result.response.text();
       } catch (error) {
         lastError = error;
-        if (!isRetryable(error)) break;
-        await sleep(400 * (attempt + 1));
+        const next = suggestedModel(error);
+        if (next) queue.unshift(next);
+        if (isMissingModel(error)) break;
+        if (!isRetryable(error) || attempt === attempts - 1) break;
+        await sleep(600 * 2 ** attempt);
       }
     }
   }
+
   throw lastError instanceof Error ? lastError : new Error("Gemini request failed");
 }
 
